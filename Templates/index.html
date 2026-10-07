@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Store Generator - Live Webshop met Betaling</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes glow {
+            0%, 100% { opacity: 0.6; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.03); }
+        }
+        .animate-glow { animation: glow 4s infinite ease-in-out; }
+    </style>
+</head>
+<body class="bg-slate-950 text-white min-h-screen flex flex-col">
+
+    <!-- Upload Scherm -->
+    <div id="uploadScreen" class="flex-1 flex items-center justify-center p-6">
+        <div class="max-w-xl w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+            <div class="absolute -top-24 -right-24 w-48 h-48 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
+            
+            <h1 class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-pink-500 mb-2">Store Generator AI 🛍️</h1>
+            <p class="text-slate-400 mb-6">Upload een screenshot van een product en transformeer het direct naar een webshop waar klanten echt kunnen afrekenen.</p>
+
+            <form id="uploadForm" class="space-y-4">
+                <div class="border-2 border-dashed border-slate-700 rounded-2xl p-8 text-center hover:border-indigo-500 transition cursor-pointer bg-slate-950/50">
+                    <input type="file" id="screenshot" accept="image/*" class="w-full text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500">
+                </div>
+                <button type="submit" class="w-full py-4 px-4 bg-gradient-to-r from-indigo-600 to-pink-600 font-bold rounded-2xl shadow-lg shadow-indigo-500/30 hover:opacity-90 transition text-lg">
+                    Genereer Betaalbare Webshop ✨
+                </button>
+            </form>
+
+            <div id="loading" class="hidden mt-6 text-center text-indigo-400 animate-pulse font-medium">Webshop wordt ingericht met betaalsysteem... 🚀</div>
+        </div>
+    </div>
+
+    <!-- Gegenereerde Webshop -->
+    <div id="storeScreen" class="hidden flex-1 flex flex-col">
+        <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50 px-8 py-4 flex justify-between items-center">
+            <div class="text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-pink-500">⚡ NEXUS STORE</div>
+            <button onclick="location.reload()" class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-xl border border-slate-700 transition">🔄 Nieuw Product</button>
+        </header>
+
+        <main class="flex-1 max-w-6xl w-full mx-auto p-6 md:p-12 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+            <div class="relative flex justify-center">
+                <div class="absolute inset-0 bg-gradient-to-r from-indigo-600 to-pink-600 rounded-3xl blur-2xl opacity-30 animate-glow"></div>
+                <div class="relative bg-slate-900 border border-slate-800 rounded-3xl p-4 shadow-2xl w-full max-w-md overflow-hidden">
+                    <img id="storeImage" src="" alt="Product" class="rounded-2xl w-full h-80 object-cover border border-slate-800">
+                </div>
+            </div>
+
+            <div class="space-y-6">
+                <span class="bg-pink-500/10 text-pink-400 border border-pink-500/20 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Direct Bestelbaar 🚀</span>
+                <h1 id="storeTitle" class="text-3xl md:text-4xl font-black text-white leading-tight"></h1>
+                
+                <div class="flex items-center gap-4">
+                    <span id="storePrice" class="text-3xl font-extrabold text-indigo-400"></span>
+                    <span id="storeOldPrice" class="text-lg text-slate-500 line-through">€ 89,99</span>
+                </div>
+
+                <p id="storeDesc" class="text-slate-400 leading-relaxed"></p>
+
+                <div class="pt-4 border-t border-slate-800/80">
+                    <button onclick="startCheckout()" class="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 font-bold rounded-2xl shadow-xl shadow-emerald-500/20 hover:scale-[1.02] active:scale-[0.98] transition text-lg">
+                        💳 Veilig Afrekenen met Stripe
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let currentProduct = { name: "Product", amount: 4999 };
+
+        const form = document.getElementById('uploadForm');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fileInput = document.getElementById('screenshot');
+            if (fileInput.files.length === 0) return alert('Kies eerst een screenshot!');
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            document.getElementById('loading').classList.remove('hidden');
+
+            const response = await fetch('/generate-store', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+
+            if(data.status === 'success') {
+                currentProduct.name = data.product_name;
+                currentProduct.amount = data.price_amount;
+
+                document.getElementById('storeTitle').innerText = data.product_name;
+                document.getElementById('storePrice').innerText = data.price_display;
+                document.getElementById('storeDesc').innerText = data.description;
+                document.getElementById('storeImage').src = data.image;
+
+                document.getElementById('uploadScreen').classList.add('hidden');
+                document.getElementById('storeScreen').classList.remove('hidden');
+            } else {
+                alert('Er is een fout opgetreden.');
+                document.getElementById('loading').classList.add('hidden');
+            }
+        });
+
+        async function startCheckout() {
+            const response = await fetch('/create-checkout-session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ product_name: currentProduct.name, amount: currentProduct.amount })
+            });
+            const data = await response.json();
+            if (data.url) {
+                window.location.href = data.url; // Stuur door naar de echte Stripe betaalpagina
+            } else {
+                alert(data.error || 'Kon betaalsessie niet starten.');
+            }
+        }
+    </script>
+</body>
+</html>
